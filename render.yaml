@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: yc-job-dashboard-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DB_PATH
+        value: /data/yc_dashboard.db
+      - key: PYTHON_VERSION
+        value: "3.12"
+    disk:
+      mountPath: /data
+      sizeGB: 1
