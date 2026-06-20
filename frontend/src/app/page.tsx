@@ -1,30 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 
-interface Stats {
-  total_companies: number;
-  hiring_companies: number;
-  total_jobs: number;
-  total_founders: number;
-  jobs_by_tier: Record<string, number>;
-  companies_by_batch: Record<string, number>;
-}
-
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const stats = useQuery(api.companies.stats);
 
-  useEffect(() => {
-    fetch("/api/stats")
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
+  if (!stats) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-500">Loading dashboard...</div>
@@ -36,9 +19,7 @@ export default function Dashboard() {
     <div className="min-h-screen">
       <nav className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">
-            YC Job Dashboard
-          </h1>
+          <h1 className="text-xl font-bold text-gray-900">YC Job Dashboard</h1>
           <div className="flex gap-6 text-sm">
             <Link href="/" className="text-orange-600 font-medium">
               Dashboard
@@ -68,23 +49,18 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <StatCard
             label="Total Companies"
-            value={stats?.total_companies ?? 0}
+            value={stats.totalCompanies}
             color="bg-blue-500"
           />
           <StatCard
             label="Hiring Now"
-            value={stats?.hiring_companies ?? 0}
+            value={stats.hiringCompanies}
             color="bg-green-500"
           />
           <StatCard
             label="Total Jobs"
-            value={stats?.total_jobs ?? 0}
+            value={stats.totalJobs}
             color="bg-purple-500"
-          />
-          <StatCard
-            label="Founders"
-            value={stats?.total_founders ?? 0}
-            color="bg-orange-500"
           />
         </div>
 
@@ -106,9 +82,9 @@ export default function Dashboard() {
                       }`}
                       style={{
                         width: `${
-                          stats?.total_jobs
-                            ? ((stats.jobs_by_tier?.[tier] ?? 0) /
-                                stats.total_jobs) *
+                          stats.totalJobs
+                            ? ((stats.jobsByTier?.[tier] || 0) /
+                                stats.totalJobs) *
                               100
                             : 0
                         }%`,
@@ -116,7 +92,7 @@ export default function Dashboard() {
                     />
                   </div>
                   <span className="text-sm text-gray-600 w-12 text-right">
-                    {stats?.jobs_by_tier?.[tier] ?? 0}
+                    {stats.jobsByTier?.[tier] || 0}
                   </span>
                 </div>
               ))}
@@ -126,14 +102,12 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="font-semibold mb-4">Top YC Batches</h3>
             <div className="space-y-2">
-              {Object.entries(stats?.companies_by_batch ?? {})
-                .slice(0, 8)
-                .map(([batch, count]) => (
-                  <div key={batch} className="flex justify-between text-sm">
-                    <span className="text-gray-700">{batch}</span>
-                    <span className="font-medium">{count} companies</span>
-                  </div>
-                ))}
+              {stats.companiesByBatch?.slice(0, 8).map((b) => (
+                <div key={b.batch} className="flex justify-between text-sm">
+                  <span className="text-gray-700">{b.batch}</span>
+                  <span className="font-medium">{b.count} companies</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -142,16 +116,10 @@ export default function Dashboard() {
           <h3 className="font-semibold mb-4">Quick Actions</h3>
           <div className="flex gap-4">
             <Link
-              href="/jobs"
+              href="/companies"
               className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium"
             >
-              Browse Jobs
-            </Link>
-            <Link
-              href="/companies"
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
-            >
-              View Companies
+              Browse Companies
             </Link>
             <Link
               href="/outreach"

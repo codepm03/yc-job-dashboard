@@ -1,53 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
-
-interface Company {
-  id: number;
-  slug: string;
-  name: string;
-  one_liner: string;
-  batch: string;
-  industry: string;
-  team_size: number;
-  is_hiring: boolean;
-  top_company: boolean;
-  website: string;
-}
+import { useState } from "react";
 
 export default function CompaniesPage() {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [batch, setBatch] = useState("");
   const [hiringOnly, setHiringOnly] = useState(false);
 
-  const fetchCompanies = (offset = 0) => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    if (batch) params.set("batch", batch);
-    if (hiringOnly) params.set("is_hiring", "true");
-    params.set("limit", "50");
-    params.set("offset", String(offset));
-
-    fetch(`/api/companies?${params}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setCompanies(data.companies || []);
-        setTotal(data.total || 0);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchCompanies(0);
-    setPage(0);
-  }, [search, batch, hiringOnly]);
+  const companies = useQuery(api.companies.list, {
+    search: search || undefined,
+    batch: batch || undefined,
+    isHiring: hiringOnly || undefined,
+    limit: 100,
+  });
 
   return (
     <div className="min-h-screen">
@@ -83,7 +51,7 @@ export default function CompaniesPage() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold">Companies</h2>
           <span className="text-sm text-gray-500">
-            {total.toLocaleString()} total
+            {companies?.total?.toLocaleString() || 0} total
           </span>
         </div>
 
@@ -115,28 +83,28 @@ export default function CompaniesPage() {
           </div>
         </div>
 
-        {loading ? (
+        {!companies ? (
           <div className="text-center py-12 text-gray-500">
             Loading companies...
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {companies.map((c) => (
+            {companies.companies.map((c) => (
               <Link
-                key={c.id}
+                key={c._id}
                 href={`/companies/${c.slug}`}
                 className="bg-white rounded-lg border border-gray-200 p-5 hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold text-gray-900">{c.name}</h3>
-                  {c.top_company && (
+                  {c.topCompany && (
                     <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
                       Top
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                  {c.one_liner || "No description"}
+                  {c.oneLiner || "No description"}
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs">
                   {c.batch && (
@@ -149,49 +117,19 @@ export default function CompaniesPage() {
                       {c.industry}
                     </span>
                   )}
-                  {c.is_hiring && (
+                  {c.isHiring && (
                     <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">
                       Hiring
                     </span>
                   )}
-                  {c.team_size > 0 && (
+                  {c.teamSize && c.teamSize > 0 && (
                     <span className="text-gray-400">
-                      {c.team_size} employees
+                      {c.teamSize} employees
                     </span>
                   )}
                 </div>
               </Link>
             ))}
-          </div>
-        )}
-
-        {total > 50 && (
-          <div className="flex justify-between items-center mt-6">
-            <button
-              onClick={() => {
-                const newPage = Math.max(0, page - 1);
-                setPage(newPage);
-                fetchCompanies(newPage * 50);
-              }}
-              disabled={page === 0}
-              className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-gray-500">
-              Page {page + 1} of {Math.ceil(total / 50)}
-            </span>
-            <button
-              onClick={() => {
-                const newPage = page + 1;
-                setPage(newPage);
-                fetchCompanies(newPage * 50);
-              }}
-              disabled={(page + 1) * 50 >= total}
-              className="px-3 py-1 text-sm border border-gray-300 rounded disabled:opacity-50"
-            >
-              Next
-            </button>
           </div>
         )}
       </main>

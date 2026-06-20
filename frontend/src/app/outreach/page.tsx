@@ -1,71 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
-
-interface OutreachNote {
-  id: number;
-  company_name: string;
-  founder_name: string;
-  note: string;
-  status: string;
-  sent_at: string | null;
-  created_at: string;
-}
+import { useState } from "react";
 
 export default function OutreachPage() {
-  const [notes, setNotes] = useState<OutreachNote[]>([]);
-  const [loading, setLoading] = useState(true);
+  const notes = useQuery(api.outreach.list, {});
+  const createNote = useMutation(api.outreach.create);
+  const updateNote = useMutation(api.outreach.update);
+  const deleteNote = useMutation(api.outreach.remove);
+
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    company_id: "",
-    founder_id: "",
-    note: "",
-    status: "not_sent",
-  });
-
-  const fetchNotes = () => {
-    setLoading(true);
-    fetch("/api/outreach")
-      .then((r) => r.json())
-      .then((data) => setNotes(data.notes || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchNotes();
-  }, []);
+  const [noteText, setNoteText] = useState("");
+  const [founderName, setFounderName] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetch("/api/outreach", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        company_id: form.company_id ? Number(form.company_id) : null,
-        founder_id: form.founder_id ? Number(form.founder_id) : null,
-        note: form.note,
-        status: form.status,
-      }),
+    if (!noteText.trim()) return;
+    await createNote({
+      note: noteText,
+      founderName: founderName || undefined,
+      status: "not_sent",
     });
-    setForm({ company_id: "", founder_id: "", note: "", status: "not_sent" });
+    setNoteText("");
+    setFounderName("");
     setShowForm(false);
-    fetchNotes();
-  };
-
-  const updateStatus = async (id: number, status: string) => {
-    await fetch(`/api/outreach/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    fetchNotes();
-  };
-
-  const deleteNote = async (id: number) => {
-    await fetch(`/api/outreach/${id}`, { method: "DELETE" });
-    fetchNotes();
   };
 
   const statusColors: Record<string, string> = {
@@ -121,33 +81,17 @@ export default function OutreachPage() {
             onSubmit={handleSubmit}
             className="bg-white rounded-lg border border-gray-200 p-6 mb-6"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Company ID (optional)
-                </label>
-                <input
-                  type="number"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  value={form.company_id}
-                  onChange={(e) =>
-                    setForm({ ...form, company_id: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Founder ID (optional)
-                </label>
-                <input
-                  type="number"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  value={form.founder_id}
-                  onChange={(e) =>
-                    setForm({ ...form, founder_id: e.target.value })
-                  }
-                />
-              </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Founder / Contact Name (optional)
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                value={founderName}
+                onChange={(e) => setFounderName(e.target.value)}
+                placeholder="e.g., John Smith"
+              />
             </div>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -156,23 +100,21 @@ export default function OutreachPage() {
               <textarea
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 rows={3}
-                value={form.note}
-                onChange={(e) => setForm({ ...form, note: e.target.value })}
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Write your outreach note..."
               />
             </div>
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm"
-              >
-                Save Note
-              </button>
-            </div>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm"
+            >
+              Save Note
+            </button>
           </form>
         )}
 
-        {loading ? (
+        {!notes ? (
           <div className="text-center py-12 text-gray-500">Loading...</div>
         ) : notes.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
@@ -182,28 +124,30 @@ export default function OutreachPage() {
           <div className="space-y-3">
             {notes.map((n) => (
               <div
-                key={n.id}
+                key={n._id}
                 className="bg-white rounded-lg border border-gray-200 p-4"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    {n.company_name && (
+                    {n.companyName && (
                       <span className="font-medium text-sm">
-                        {n.company_name}
+                        {n.companyName}
                       </span>
                     )}
-                    {n.founder_name && (
+                    {n.founderName && (
                       <span className="text-sm text-gray-500 ml-2">
-                        / {n.founder_name}
+                        / {n.founderName}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <select
-                      value={n.status}
-                      onChange={(e) => updateStatus(n.id, e.target.value)}
+                      value={n.status || "not_sent"}
+                      onChange={(e) =>
+                        updateNote({ id: n._id, status: e.target.value })
+                      }
                       className={`text-xs px-2 py-1 rounded border-0 ${
-                        statusColors[n.status] || statusColors.not_sent
+                        statusColors[n.status || "not_sent"]
                       }`}
                     >
                       <option value="not_sent">Not Sent</option>
@@ -212,7 +156,7 @@ export default function OutreachPage() {
                       <option value="closed">Closed</option>
                     </select>
                     <button
-                      onClick={() => deleteNote(n.id)}
+                      onClick={() => deleteNote({ id: n._id })}
                       className="text-xs text-red-500 hover:text-red-700"
                     >
                       Delete
@@ -220,9 +164,11 @@ export default function OutreachPage() {
                   </div>
                 </div>
                 <p className="text-sm text-gray-700">{n.note}</p>
-                <div className="text-xs text-gray-400 mt-2">
-                  Created: {new Date(n.created_at).toLocaleDateString()}
-                </div>
+                {n.sentAt && (
+                  <div className="text-xs text-gray-400 mt-2">
+                    Sent: {new Date(n.sentAt).toLocaleDateString()}
+                  </div>
+                )}
               </div>
             ))}
           </div>
